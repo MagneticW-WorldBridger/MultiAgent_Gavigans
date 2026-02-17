@@ -11,6 +11,14 @@ Architecture:
 
 Based on ADK-Woodstock architecture for Chatrace-Inbox integration.
 """
+# =============================================================================
+# CRITICAL: Enable nested asyncio BEFORE anything else
+# This allows asyncio.run() to work even when uvicorn's event loop is running
+# =============================================================================
+import nest_asyncio
+nest_asyncio.apply()
+# =============================================================================
+
 import os
 import uvicorn
 from pathlib import Path
