@@ -7,18 +7,9 @@ nixPkgs = ["python311", "nodejs_20"]
 [phases.build]
 cmds = [
     "python -m prisma generate",
-    "cd frontend && npm install && npm run build"
+    "cd frontend && npm install && npm run build",
+    "chmod +x start.sh"
 ]
 
 [start]
-# CRITICAL: Convert DATABASE_URL from postgresql+asyncpg:// to postgresql:// for Prisma
-# Railway uses postgresql+asyncpg:// but Prisma needs postgresql://
-# Also convert ssl=require to sslmode=require
-cmd = """
-export DATABASE_URL=$(echo $DATABASE_URL | sed 's/postgresql+asyncpg/postgresql/g' | sed 's/ssl=require/sslmode=require/g')
-echo "🔧 DATABASE_URL (for Prisma): ${DATABASE_URL:0:60}..."
-echo "🔧 Running prisma db push..."
-python -m prisma db push --skip-generate
-echo "✅ Prisma tables ready"
-uvicorn main:app --host 0.0.0.0 --port $PORT
-"""
+cmd = "bash start.sh"
