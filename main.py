@@ -11,14 +11,6 @@ Architecture:
 
 Based on ADK-Woodstock architecture for Chatrace-Inbox integration.
 """
-# =============================================================================
-# CRITICAL: Enable nested asyncio BEFORE anything else
-# This allows asyncio.run() to work even when uvicorn's event loop is running
-# =============================================================================
-import nest_asyncio
-nest_asyncio.apply()
-# =============================================================================
-
 import os
 import uvicorn
 from pathlib import Path
@@ -66,17 +58,31 @@ except ImportError:
 import asyncio
 import gavigans_agent.agent as ga_module
 
+
+def _run_async_bootstrap(coro):
+    """Run async code by creating a fresh event loop (avoids uvloop conflicts)."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
+
+
 try:
     from multi_agent_builder import build_root_agent
-    _root = asyncio.run(build_root_agent(
+    _root = _run_async_bootstrap(build_root_agent(
         before_callback=ga_module.before_agent_callback,
         after_callback=ga_module.after_agent_callback,
     ))
     ga_module.root_agent = _root
     import gavigans_agent
     gavigans_agent.root_agent = _root
-    print("✅ Multi-agent root loaded from DB")
+    print(f"✅ Multi-agent root loaded from DB: {len(getattr(_root, 'sub_agents', []) or [])} sub-agents")
 except Exception as e:
+    import traceback
+    traceback.print_exc()
     print(f"⚠️ Multi-agent bootstrap failed ({e}) - using single agent from module")
     _root = None  # fallback used
 
