@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gavigans — Sign In</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-box">
+      <h1>Gavigans</h1>
+      <p class="subtitle">Agent management platform</p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="login">Sign In</button>
+        <button class="tab" data-tab="register">Create Account</button>
+      </div>
+
+      <div id="error" class="error-msg"></div>
+
+      <!-- Login Form -->
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="Your password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" style="display:none">
+        <div class="form-group">
+          <label for="reg-name">Name</label>
+          <input type="text" id="reg-name" placeholder="Your name" required>
+        </div>
+        <div class="form-group">
+          <label for="reg-email">Email</label>
+          <input type="email" id="reg-email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Password</label>
+          <input type="password" id="reg-password" placeholder="Choose a password" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    // Redirect if already authenticated
+    if (API.isAuthenticated()) {
+      window.location.href = '/dashboard';
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.getElementById('login-form').style.display = target === 'login' ? '' : 'none';
+        document.getElementById('register-form').style.display = target === 'register' ? '' : 'none';
+        hideError();
+      });
+    });
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function hideError() {
+      document.getElementById('error').classList.remove('visible');
+    }
+
+    // Login
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        const data = await API.login(
+          document.getElementById('login-email').value,
+          document.getElementById('login-password').value
+        );
+        API.setAuth(data);
+        window.location.href = '/dashboard';
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    });
+
+    // Register
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        const data = await API.register(
+          document.getElementById('reg-email').value,
+          document.getElementById('reg-password').value,
+          document.getElementById('reg-name').value
+        );
+        API.setAuth(data);
+        window.location.href = '/dashboard';
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

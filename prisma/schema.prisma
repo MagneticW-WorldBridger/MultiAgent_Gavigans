@@ -1,0 +1,59 @@
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  name          String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  agents        Agent[]
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model Agent {
+  id          String   @id @default(uuid())
+  name        String
+  model       String   @default("gemini-2.0-flash")
+  description String
+  instruction String
+  tools       Json     @default("[]")
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("agents")
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String
+  agentName      String?      @map("agent_name")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("messages")
+}

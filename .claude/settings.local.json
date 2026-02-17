@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(pip install:*)",
+      "Bash(export PATH:*)",
+      "Bash(source:*)",
+      "Bash(ls:*)",
+      "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && pip install --force-reinstall -r requirements.txt\")",
+      "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && python -m prisma generate && python seed.py\")",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && python -m prisma generate\")",
+      "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && python seed.py\")",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && python test_tool.py\")",
+      "Bash(cmd.exe //c \"taskkill /F /IM python.exe 2>NUL\")"
+    ]
+  }
+}
