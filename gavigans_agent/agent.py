@@ -13,11 +13,24 @@ Key Features:
 
 from dotenv import load_dotenv
 import asyncio
+import logging
 import os
 import httpx
 from datetime import datetime
 
 load_dotenv()
+
+# Memory management imports
+from gavigans_agent.memory import (
+    build_memory_context,
+    maybe_summarize_session,
+    load_cross_session_memory,
+)
+from gavigans_agent.config import (
+    STATE_KEY_USER_SUMMARY,
+)
+
+logger = logging.getLogger(__name__)
 
 # Inbox webhook URL for real-time notifications
 INBOX_WEBHOOK_URL = os.environ.get("INBOX_WEBHOOK_URL", "https://chatrace-inbox-production-561c.up.railway.app/webhook/message")
@@ -75,6 +88,10 @@ You can assist with general inquiries and help route requests to the appropriate
 
 ## MEMORY
 You have full memory of the current conversation. Reference earlier parts naturally.
+If you see a [CONVERSATION MEMORY] or [CUSTOMER HISTORY] block at the start of a message,
+that is a summary of earlier parts of the conversation (or previous conversations).
+Treat that information as your memory — reference it naturally, don't mention it's a summary.
+If the customer previously discussed products, preferences, or issues, acknowledge that context.
 """
 
 
@@ -88,6 +105,8 @@ async def before_agent_callback(callback_context: CallbackContext) -> types.Cont
     
     1. Send webhook for USER message (so inbox sees it in realtime)
     2. Check if AI is paused (human agent takeover)
+    3. Load cross-session memory for new sessions
+    4. Inject conversation summary into context if available
     """
     if not ADK_AVAILABLE:
         return None
@@ -136,6 +155,46 @@ async def before_agent_callback(callback_context: CallbackContext) -> types.Cont
             parts=[types.Part(text="__AI_PAUSED__")]
         )
     
+    # ============================================
+    # STEP 2: CROSS-SESSION MEMORY (new sessions)
+    # ============================================
+    try:
+        events = getattr(session, 'events', []) or []
+        user_id = getattr(session, 'user_id', None) or "default"
+        
+        # On first message of a new session, check for previous session memory
+        if len(events) <= 1 and not state.get(STATE_KEY_USER_SUMMARY):
+            # Try to load from ADK's session_service if available
+            # The session_service is attached at app level, so we use a module-level ref
+            if _session_service_ref is not None:
+                cross_summary = await load_cross_session_memory(
+                    _session_service_ref, user_id
+                )
+                if cross_summary:
+                    state[STATE_KEY_USER_SUMMARY] = cross_summary
+                    logger.info(
+                        "📚 Loaded cross-session memory for user %s (%d chars)",
+                        user_id, len(cross_summary)
+                    )
+    except Exception as e:
+        logger.warning("⚠️ Cross-session memory load error (non-fatal): %s", e)
+    
+    # ============================================
+    # STEP 3: INJECT MEMORY CONTEXT
+    # ============================================
+    # build_memory_context checks state for summaries and returns a context string.
+    # The ADK will prepend this to the conversation context automatically
+    # via the agent instruction + state. We store it in state so the
+    # instruction can reference it, but the actual injection happens
+    # through the agent's natural context window.
+    try:
+        memory_context = build_memory_context(state)
+        if memory_context:
+            state["_memory_context"] = memory_context
+            logger.info("🧠 Memory context injected (%d chars)", len(memory_context))
+    except Exception as e:
+        logger.warning("⚠️ Memory context build error (non-fatal): %s", e)
+    
     return None
 
 
@@ -149,6 +208,7 @@ async def after_agent_callback(callback_context: CallbackContext) -> types.Conte
     
     1. Persist last_message_preview and message_count in session.state
     2. Send webhook notification to Inbox for real-time SSE broadcast
+    3. Check if conversation needs summarization (threshold-based)
     """
     if not ADK_AVAILABLE:
         return None
@@ -213,6 +273,25 @@ async def after_agent_callback(callback_context: CallbackContext) -> types.Conte
     except Exception as e:
         print(f"⚠️ after_agent_callback error (non-fatal): {e}")
     
+    # ============================================
+    # STEP 3: CONVERSATION SUMMARIZATION
+    # ============================================
+    try:
+        session = callback_context.session
+        state = callback_context.state
+        
+        if session:
+            state_updates = await maybe_summarize_session(session, state)
+            if state_updates:
+                for key, value in state_updates.items():
+                    state[key] = value
+                logger.info(
+                    "📝 Conversation summarized for session %s",
+                    getattr(session, 'id', '?')[:8]
+                )
+    except Exception as e:
+        logger.warning("⚠️ Summarization error (non-fatal): %s", e)
+    
     return None
 
 
@@ -263,6 +342,21 @@ async def _send_webhook_to_inbox(conversation_id: str, message_id: str, message:
             print(f"{status} Webhook to Inbox: {resp.status_code}")
     except Exception as e:
         print(f"❌ Webhook error: {e}")
+
+
+# ============================================================================
+# SESSION SERVICE REFERENCE (set by main.py at startup)
+# ============================================================================
+
+_session_service_ref = None
+
+
+def set_session_service(service):
+    """Called by main.py to give callbacks access to session_service
+    for cross-session memory lookups."""
+    global _session_service_ref
+    _session_service_ref = service
+    logger.info("✅ Session service reference set for cross-session memory")
 
 
 # ============================================================================

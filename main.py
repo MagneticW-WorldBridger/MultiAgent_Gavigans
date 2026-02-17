@@ -12,6 +12,8 @@ Architecture:
 Based on ADK-Woodstock architecture for Chatrace-Inbox integration.
 """
 import os
+import asyncio
+import logging
 import uvicorn
 from pathlib import Path
 from dotenv import load_dotenv
@@ -217,12 +219,146 @@ if SESSION_DB_URL:
     create_inbox_router(session_service, app_name="gavigans_agent")
     app.include_router(inbox_router)
     
+    # 🧠 Wire session_service into agent callbacks for cross-session memory
+    try:
+        import gavigans_agent.agent as _ga_ref
+        _ga_ref.set_session_service(session_service)
+        print("✅ Session service wired to agent callbacks (cross-session memory enabled)")
+    except Exception as _wire_err:
+        print(f"⚠️ Failed to wire session_service to agent: {_wire_err}")
+    
     print("✅ Using DatabaseSessionService (PostgreSQL)")
     print(f"   Pool settings: pre_ping={SESSION_DB_KWARGS['pool_pre_ping']}, recycle={SESSION_DB_KWARGS['pool_recycle']}s")
     print("✅ INBOX API mounted at /api/inbox/*")
+    
+    # ========================================================================
+    # 🔍 DEBUG: Memory Introspection Endpoint
+    # ========================================================================
+    
+    @app.get("/debug/memory/{conversation_id}", include_in_schema=False)
+    async def debug_memory(conversation_id: str, user_id: str = "default"):
+        """
+        Inspect what the agent "remembers" for a given conversation.
+        
+        Returns: state, event count, token estimate, summary, session age.
+        Usage: GET /debug/memory/<conversation_id>?user_id=default
+        """
+        from gavigans_agent.memory import get_session_memory_info
+        
+        try:
+            session = await session_service.get_session(
+                app_name="gavigans_agent",
+                user_id=user_id,
+                session_id=conversation_id,
+            )
+            if not session:
+                return {"error": "Session not found", "conversation_id": conversation_id}
+            
+            return get_session_memory_info(session)
+        except Exception as e:
+            return {"error": str(e), "conversation_id": conversation_id}
+    
+    
+    @app.get("/debug/memory", include_in_schema=False)
+    async def debug_memory_all():
+        """
+        List all sessions with their memory status (summary overview).
+        Usage: GET /debug/memory
+        """
+        from gavigans_agent.memory import get_session_memory_info
+        
+        try:
+            response = await session_service.list_sessions(
+                app_name="gavigans_agent",
+                user_id=None,
+            )
+            if not response or not response.sessions:
+                return {"sessions": [], "total": 0}
+            
+            summaries = []
+            for s in response.sessions:
+                state = s.state if hasattr(s, "state") and s.state else {}
+                summaries.append({
+                    "conversation_id": getattr(s, "id", None),
+                    "user_id": getattr(s, "user_id", None),
+                    "has_summary": bool(state.get("conversation_summary", "")),
+                    "message_count": state.get("message_count", 0),
+                    "ai_paused": state.get("ai_paused", False),
+                    "last_message": state.get("last_message_preview", None),
+                })
+            
+            return {"sessions": summaries, "total": len(summaries)}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    
+    # ========================================================================
+    # 🧹 90-DAY TTL: Background Cleanup Task
+    # ========================================================================
+    
+    _ttl_task = None
+    
+    async def _ttl_cleanup_loop():
+        """Background loop that runs TTL cleanup every 24 hours."""
+        from gavigans_agent.memory import cleanup_expired_sessions
+        from gavigans_agent.config import TTL_CLEANUP_INTERVAL_SECONDS
+        
+        _logger = logging.getLogger("ttl_cleanup")
+        _logger.info("🧹 TTL cleanup background task started (interval: %ds)", TTL_CLEANUP_INTERVAL_SECONDS)
+        
+        # Wait 60 seconds after startup before first run
+        await asyncio.sleep(60)
+        
+        while True:
+            try:
+                _logger.info("🧹 Running 90-day TTL cleanup...")
+                stats = await cleanup_expired_sessions(session_service)
+                _logger.info("🧹 TTL cleanup result: %s", stats)
+            except asyncio.CancelledError:
+                _logger.info("🧹 TTL cleanup task cancelled")
+                break
+            except Exception as e:
+                _logger.error("❌ TTL cleanup error: %s", e)
+            
+            await asyncio.sleep(TTL_CLEANUP_INTERVAL_SECONDS)
+    
+    
+    @app.on_event("startup")
+    async def start_ttl_cleanup():
+        """Start the TTL cleanup background task on app startup."""
+        global _ttl_task
+        _ttl_task = asyncio.create_task(_ttl_cleanup_loop())
+        print("✅ 90-day TTL cleanup background task scheduled")
+    
+    
+    @app.on_event("shutdown")
+    async def stop_ttl_cleanup():
+        """Cancel the TTL cleanup background task on shutdown."""
+        global _ttl_task
+        if _ttl_task:
+            _ttl_task.cancel()
+            print("🧹 TTL cleanup background task stopped")
+    
+    
+    @app.get("/debug/ttl-cleanup", include_in_schema=False)
+    async def debug_ttl_cleanup():
+        """
+        Manually trigger the 90-day TTL cleanup (for testing/debugging).
+        Usage: GET /debug/ttl-cleanup
+        """
+        from gavigans_agent.memory import cleanup_expired_sessions
+        
+        try:
+            stats = await cleanup_expired_sessions(session_service)
+            return {"status": "completed", **stats}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 else:
+    session_service = None
     print("⚠️  No DATABASE_URL - InMemorySessionService (non-persistent)")
     print("⚠️  INBOX API disabled (requires database)")
+    print("⚠️  Memory features disabled (requires database)")
 
 # ============================================================================
 # SERVE REACT FRONTEND (Monolithic Architecture)
