@@ -1,11 +1,13 @@
-[phases.setup]
-nixPkgs = ["python311", "nodejs_20"]
+# Railway Python + Node deployment (monolithic frontend + backend)
+providers = ["python"]
 
-[phases.install]
+[phases.setup]
+nixPkgs = ["python311", "nodejs_20", "npm"]
+
+[phases.build]
 cmds = [
-  "pip install -r requirements.txt",
-  "cd frontend && npm install && npm run build"
+    "cd frontend && npm install && npm run build"
 ]
 
 [start]
-cmd = "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
