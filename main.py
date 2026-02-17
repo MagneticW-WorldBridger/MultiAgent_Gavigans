@@ -53,54 +53,22 @@ except ImportError:
 # =============================================================================
 
 # =============================================================================
-# MULTI-AGENT: Build root from DB before ADK loads (all Gavigans, no auth)
+# MULTI-AGENT: Build from hardcoded config (no DB dependency)
 # =============================================================================
-import asyncio
-import threading
 import gavigans_agent.agent as ga_module
-
-
-def _run_async_in_thread(coro):
-    """
-    Run async code in a SEPARATE THREAD with its own event loop.
-    This avoids conflicts with uvicorn's event loop completely.
-    """
-    result = [None]
-    exception = [None]
-    
-    def _thread_target():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result[0] = loop.run_until_complete(coro)
-        except Exception as e:
-            exception[0] = e
-        finally:
-            loop.close()
-    
-    thread = threading.Thread(target=_thread_target)
-    thread.start()
-    thread.join(timeout=30)  # 30 second timeout
-    
-    if thread.is_alive():
-        raise TimeoutError("Multi-agent bootstrap timed out after 30s")
-    if exception[0]:
-        raise exception[0]
-    return result[0]
-
 
 _bootstrap_error = None  # Store error for debugging
 
 try:
-    from multi_agent_builder import build_root_agent
-    _root = _run_async_in_thread(build_root_agent(
+    from multi_agent_builder import build_root_agent_sync
+    _root = build_root_agent_sync(
         before_callback=ga_module.before_agent_callback,
         after_callback=ga_module.after_agent_callback,
-    ))
+    )
     ga_module.root_agent = _root
     import gavigans_agent
     gavigans_agent.root_agent = _root
-    print(f"✅ Multi-agent root loaded from DB: {len(getattr(_root, 'sub_agents', []) or [])} sub-agents")
+    print(f"✅ Multi-agent root loaded: {len(getattr(_root, 'sub_agents', []) or [])} sub-agents")
 except Exception as e:
     import traceback
     _bootstrap_error = traceback.format_exc()
