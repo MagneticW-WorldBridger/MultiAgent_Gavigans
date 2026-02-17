@@ -123,6 +123,9 @@ ALLOWED_ORIGINS = [
     "https://gavigans.demo.aiprlassist.com",  # Production webchat
     "https://gavigans.inbox.aiprlassist.com",  # Production Inbox
     "https://frontend-production-43b8.up.railway.app",  # Inbox frontend (Railway)
+    "https://www.gaviganshomefurnishings.com",  # Gavigans main website
+    "https://gaviganshomefurnishings.com",  # Gavigans (no www)
+    "https://dynamiccode-ochre.vercel.app",  # Widget hosting
     "http://localhost:5173",  # Local dev (Vite)
     "http://localhost:3000",  # Local dev
     "http://localhost:8000",  # Local backend
