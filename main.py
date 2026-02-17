@@ -42,6 +42,27 @@ except ImportError:
     print("⚠️ ADK not installed yet - skipping timestamp patch")
 # =============================================================================
 
+# =============================================================================
+# MULTI-AGENT: Build root from DB before ADK loads (all Gavigans, no auth)
+# =============================================================================
+import asyncio
+import gavigans_agent.agent as ga_module
+
+try:
+    from multi_agent_builder import build_root_agent
+    _root = asyncio.run(build_root_agent(
+        before_callback=ga_module.before_agent_callback,
+        after_callback=ga_module.after_agent_callback,
+    ))
+    ga_module.root_agent = _root
+    import gavigans_agent
+    gavigans_agent.root_agent = _root
+    print("✅ Multi-agent root loaded from DB")
+except Exception as e:
+    print(f"⚠️ Multi-agent bootstrap failed ({e}) - using single agent from module")
+
+# =============================================================================
+
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.sessions import DatabaseSessionService
 from fastapi.staticfiles import StaticFiles
