@@ -2,7 +2,7 @@
 providers = ["python"]
 
 [phases.setup]
-nixPkgs = ["python311", "nodejs_20", "npm"]
+nixPkgs = ["python311", "nodejs_20"]
 
 [phases.build]
 cmds = [
