@@ -92,6 +92,8 @@ PORT = int(os.environ.get("PORT", 8000))
 ALLOWED_ORIGINS = [
     "https://gavigans.demo.aiprlassist.com",  # Production webchat
     "https://gavigans.inbox.aiprlassist.com",  # Production Inbox
+    "https://gaviganshf.inbox.aiprlassist.com",  # Production Inbox (alternate domain)
+    "https://splendid-sparkle-production-8673.up.railway.app",  # Gavigans Inbox (Railway)
     "https://frontend-production-43b8.up.railway.app",  # Inbox frontend (Railway)
     "https://www.gaviganshomefurnishings.com",  # Gavigans main website
     "https://gaviganshomefurnishings.com",  # Gavigans (no www)
