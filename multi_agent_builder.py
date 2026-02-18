@@ -729,7 +729,7 @@ You MUST collect Name and Email at minimum before running either tool. Phone is 
 
 async def search_products(user_message: str) -> dict:
     """Search for products based on the user's query. Returns a plain text summary of matching products."""
-    url = "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/bdca330b-8f1c-4b40-99aa-aiprl-home-and-living-V3"
+    url = "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/895eb7ee-2a87-4e65-search-for-products"
     payload = {
         "User_message": user_message,
         "chat_history": "na",
