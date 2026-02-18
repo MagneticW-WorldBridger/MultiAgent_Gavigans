@@ -291,6 +291,8 @@ export function useSSEChat() {
   const [streamingText, setStreamingText] = useState('')
   const [aiPaused, setAiPaused] = useState(false) // Track if AI is paused (human takeover)
   const [isRecovered, setIsRecovered] = useState(false) // Track if we recovered a session
+  const [hasPendingRecovery, setHasPendingRecovery] = useState(false) // Show recovery prompt
+  const [pendingSessionData, setPendingSessionData] = useState(null) // Store session data for recovery
   
   // 🔐 PERSISTENT userId - same across page loads and sessions!
   const userIdRef = useRef(getPersistentUserId())
@@ -362,14 +364,13 @@ export function useSSEChat() {
   }, [])
 
   /**
-   * 🔐 Try to recover an existing session and load chat history
-   * This enables session persistence across page loads/browser refreshes
+   * 🔐 Check if there's an existing session with history (but don't auto-load it!)
+   * User must explicitly choose to continue or start fresh
    */
-  const tryRecoverSession = useCallback(async (sessionId, userId) => {
+  const checkForRecoverableSession = useCallback(async (sessionId, userId) => {
     try {
-      console.log(`🔄 Attempting to recover session: ${sessionId} for user: ${userId}`)
+      console.log(`🔍 Checking for recoverable session: ${sessionId}`)
       
-      // Try to get the session from the API
       const getUrl = `${API_BASE}/apps/${APP_NAME}/users/${userId}/sessions/${sessionId}`
       const response = await fetch(getUrl)
       
@@ -380,34 +381,52 @@ export function useSSEChat() {
       
       const session = await response.json()
       
-      // Check if session has events (chat history)
       if (!session || !session.events || session.events.length === 0) {
         console.log(`📭 Session ${sessionId} exists but has no history`)
-        return session
+        return null
       }
       
-      // Parse events into messages for display
       const recoveredMessages = parseEventsToMessages(session.events)
       
       if (recoveredMessages.length > 0) {
-        console.log(`📜 Recovered ${recoveredMessages.length} messages from session history`)
-        // Prepend welcome message to recovered history
-        setMessages([WELCOME_MESSAGE, ...recoveredMessages])
-        setIsRecovered(true)
+        console.log(`📜 Found ${recoveredMessages.length} messages in session - prompting user`)
+        return { session, recoveredMessages }
       }
       
-      // 🔐 Check AI paused status from session state (this is the key for AI toggle!)
-      if (session.state?.ai_paused) {
-        setAiPaused(true)
-        console.log('🤖 AI is currently paused (human takeover mode active)')
-      }
-      
-      return session
-      
+      return null
     } catch (error) {
-      console.log(`❌ Failed to recover session: ${error.message}`)
+      console.log(`❌ Failed to check session: ${error.message}`)
       return null
     }
+  }, [])
+
+  /**
+   * 🔐 Actually recover the session (user chose to continue)
+   */
+  const confirmRecovery = useCallback(() => {
+    if (pendingSessionData) {
+      const { recoveredMessages } = pendingSessionData
+      setMessages([WELCOME_MESSAGE, ...recoveredMessages])
+      setIsRecovered(true)
+      sessionCreatedRef.current = true
+      startListening(sessionIdRef.current, userIdRef.current)
+      console.log(`✅ User confirmed session recovery: ${sessionIdRef.current}`)
+    }
+    setHasPendingRecovery(false)
+    setPendingSessionData(null)
+    setStatus('idle')
+  }, [pendingSessionData, startListening])
+
+  /**
+   * 🔐 Decline recovery and start fresh (user chose new conversation)
+   */
+  const declineRecovery = useCallback(() => {
+    console.log('🆕 User declined recovery - starting fresh')
+    sessionIdRef.current = null
+    clearStoredSession()
+    setHasPendingRecovery(false)
+    setPendingSessionData(null)
+    setStatus('idle')
   }, [])
 
   const ensureSession = useCallback(async () => {
@@ -416,32 +435,15 @@ export function useSSEChat() {
       return sessionIdRef.current
     }
 
-    // 🔐 STEP 1: Try to recover existing session FIRST (only attempt once)
-    if (!sessionRecoveryAttempted.current && sessionIdRef.current) {
-      sessionRecoveryAttempted.current = true
-      setStatus('recovering')
-      
-      const recovered = await tryRecoverSession(sessionIdRef.current, userIdRef.current)
-      
-      if (recovered) {
-        console.log(`✅ Recovered existing session: ${sessionIdRef.current}`)
-        sessionCreatedRef.current = true
-        startListening(sessionIdRef.current, userIdRef.current)
-        setStatus('idle')
-        return sessionIdRef.current
-      }
-      
-      // Session not found or expired - clear it and create new
-      console.log('🗑️ Session not found - clearing stored reference')
-      sessionIdRef.current = null
-      clearStoredSession()
-      // 🔧 FIX: Reset status to idle so sendMessage doesn't skip!
-      setStatus('idle')
+    // 🔐 If there's a pending recovery prompt, don't create new session yet
+    if (hasPendingRecovery) {
+      console.log('⏳ Waiting for user to choose: continue or start fresh')
+      return null
     }
     
     sessionRecoveryAttempted.current = true
 
-    // 🔐 STEP 2: Create new session with initial state
+    // 🔐 Create new session with initial state (no auto-recovery!)
     const initialState = getInitialStateFromUrl()
     const isAuthenticated = Boolean(initialState['user:customer_email'])
     
@@ -480,10 +482,16 @@ export function useSSEChat() {
     }
     
     return session.id
-  }, [startListening, tryRecoverSession])
+  }, [startListening, hasPendingRecovery])
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || (status !== 'idle' && status !== 'human_mode')) return
+    
+    // 🔐 Don't allow sending if there's a pending recovery prompt
+    if (hasPendingRecovery) {
+      console.log('⏳ Please choose to continue or start fresh first')
+      return
+    }
 
     // Add user message immediately
     setMessages(prev => [...prev, { role: 'user', text: text.trim() }])
@@ -614,7 +622,7 @@ export function useSSEChat() {
       setLiveEvents([])
       setStreamingText('')
     }
-  }, [status, ensureSession, aiPaused])
+  }, [status, ensureSession, aiPaused, hasPendingRecovery])
 
   const reset = useCallback(() => {
     if (abortControllerRef.current) {
@@ -654,22 +662,34 @@ export function useSSEChat() {
     }
   }, [])
 
-  // 🔐 Try to recover session on mount (if we have a stored sessionId)
+  // 🔐 Check for recoverable session on mount and PROMPT user (don't auto-load!)
   useEffect(() => {
     const storedSessionId = getStoredSessionId()
     if (storedSessionId && !sessionRecoveryAttempted.current) {
-      console.log('🔄 Found stored session on mount, attempting recovery...')
-      // ensureSession will handle the recovery
-      ensureSession()
-        .catch(err => {
-          console.error('❌ Session recovery failed on mount:', err.message)
+      sessionRecoveryAttempted.current = true
+      console.log('🔍 Found stored session on mount, checking if recoverable...')
+      
+      checkForRecoverableSession(storedSessionId, userIdRef.current)
+        .then(result => {
+          if (result) {
+            // Found recoverable session - show prompt to user
+            setPendingSessionData(result)
+            setHasPendingRecovery(true)
+            console.log('💬 Prompting user to continue or start fresh')
+          } else {
+            // No recoverable session - clear stored reference
+            sessionIdRef.current = null
+            clearStoredSession()
+            console.log('🆕 No recoverable session - ready for new conversation')
+          }
         })
-        .finally(() => {
-          // 🔧 FIX: Ensure status is reset even if ensureSession fails
-          setStatus(prev => prev === 'recovering' ? 'idle' : prev)
+        .catch(err => {
+          console.error('❌ Session check failed:', err.message)
+          sessionIdRef.current = null
+          clearStoredSession()
         })
     }
-  }, [ensureSession])
+  }, [checkForRecoverableSession])
 
   // Cleanup SSE connection on unmount
   useEffect(() => {
@@ -692,7 +712,12 @@ export function useSSEChat() {
     aiPaused,           // Is AI paused (human takeover)?
     isRecovered,        // Did we recover an existing session?
     userId: userIdRef.current,      // Current userId (for debugging)
-    sessionId: sessionIdRef.current  // Current sessionId (for debugging)
+    sessionId: sessionIdRef.current,  // Current sessionId (for debugging)
+    // 🆕 Session recovery prompt
+    hasPendingRecovery, // Show "continue conversation?" prompt
+    pendingMessageCount: pendingSessionData?.recoveredMessages?.length || 0,
+    confirmRecovery,    // User chose to continue
+    declineRecovery     // User chose to start fresh
   }
 }
 

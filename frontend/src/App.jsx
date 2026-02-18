@@ -24,7 +24,11 @@ function App() {
     sendMessage,
     reset,
     cancelStream,
-    aiPaused  // 🆕 Track if human is handling the conversation
+    aiPaused,  // 🆕 Track if human is handling the conversation
+    hasPendingRecovery,
+    pendingMessageCount,
+    confirmRecovery,
+    declineRecovery
   } = useSSEChat()
 
   // Auto-scroll to bottom
@@ -76,6 +80,31 @@ function App() {
             <ChatMessage key={index} message={message} />
           ))}
           
+          {/* Session Recovery Prompt */}
+          {hasPendingRecovery && (
+            <div className="recovery-prompt">
+              <div className="recovery-content">
+                <p className="recovery-text">
+                  You have a previous conversation with {pendingMessageCount} messages.
+                </p>
+                <div className="recovery-buttons">
+                  <button 
+                    onClick={confirmRecovery}
+                    className="recovery-btn continue-btn"
+                  >
+                    Continue
+                  </button>
+                  <button 
+                    onClick={declineRecovery}
+                    className="recovery-btn fresh-btn"
+                  >
+                    Start Fresh
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Live Event Feed - Shows during streaming (NOT in human mode) */}
           {(isLoading || isStreaming) && !isHumanMode && (
             <EventFeed 
@@ -96,7 +125,7 @@ function App() {
           onChange={setInput}
           onSend={handleSend}
           onCancel={cancelStream}
-          status={status}
+          status={hasPendingRecovery ? 'loading' : status}
         />
       </footer>
     </div>

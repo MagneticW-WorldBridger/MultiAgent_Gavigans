@@ -212,17 +212,21 @@ body::before {
 }
 
 /* ============================================
-   HEADER - Clean neutral design
+   HEADER - Neutral + tactile (12:00 light source)
    ============================================ */
 .header {
   flex-shrink: 0;
-  background: #f8f9fa;
-  color: #1a1a1a;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--layer-2);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
   padding: 0 16px;
   position: relative;
   z-index: 100;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  /* Top highlight + bottom shadow (tactile depth) */
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 4px rgba(28, 28, 40, 0.06), 
+    0 4px 12px rgba(28, 28, 40, 0.04);
 }
 
 .header-content {
@@ -276,7 +280,7 @@ body::before {
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -284,16 +288,18 @@ body::before {
 
 .brand-subtitle {
   font-size: 0.65rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   letter-spacing: 0.06em;
   font-weight: 500;
   text-transform: uppercase;
   padding: 3px 8px;
-  background: #e2e8f0;
+  background: var(--bg-sunken);
   border-radius: 4px;
   display: inline-block;
   margin-top: 3px;
+  /* Sunken effect (tactile) */
+  box-shadow: inset 0 1px 2px rgba(28, 28, 40, 0.08), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -385,17 +391,24 @@ body::before {
 .avatar-user {
   background: #1a1a1a;
   color: white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
+  /* Top highlight + tinted shadow (tactile depth) */
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 6px rgba(26, 26, 26, 0.3), 
+    0 1px 3px rgba(26, 26, 26, 0.2);
 }
 
-/* Agent avatar: clean white with subtle border */
+/* Agent avatar: white with tactile depth (12:00 light) */
 .avatar-agent {
-  background: #ffffff;
-  color: #1a1a1a;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e5e7eb;
+  background: var(--layer-3);
+  color: var(--text-primary);
   overflow: hidden;
   padding: 5px;
+  /* Top highlight + tinted shadow */
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 4px rgba(28, 28, 40, 0.08), 
+    0 4px 8px rgba(28, 28, 40, 0.06);
 }
 
 .avatar-agent img {
@@ -431,25 +444,41 @@ body::before {
   transition: all var(--transition-fast);
 }
 
-/* User bubble - black background, white text */
+/* User bubble - black bg, white text + tactile depth (12:00 light source) */
 .bubble-user {
   background: #1a1a1a;
   color: #ffffff;
   border-bottom-right-radius: var(--radius-sm);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Top highlight (light catching edge) + tinted bottom shadow (rich depth) */
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(26, 26, 26, 0.25), 
+    0 4px 12px rgba(26, 26, 26, 0.15);
 }
 
-/* Agent bubble - white background, black text */
+/* Squishy click - pushed into screen */
+.bubble-user:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Agent bubble - white bg, black text + tactile depth */
 .bubble-agent {
-  background: #ffffff;
-  color: #1a1a1a;
-  border: 1px solid #e5e7eb;
+  background: var(--layer-3);
+  color: var(--text-primary);
   border-bottom-left-radius: var(--radius-sm);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  /* Top highlight + tinted shadow (no pure black) */
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 2px 4px rgba(28, 28, 40, 0.08), 
+    0 4px 12px rgba(28, 28, 40, 0.06);
 }
 
+/* Hover lift - Level 3 shadow */
 .bubble-agent:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 8px rgba(28, 28, 40, 0.1), 
+    0 8px 20px rgba(28, 28, 40, 0.08);
 }
 
 /* System bubble - sunken feel (dark inset top, light bottom) */
@@ -490,11 +519,11 @@ body::before {
 }
 
 .bubble-agent .message-link {
-  color: #2563eb;
+  color: var(--brand-primary);
 }
 
 .message-link:hover {
-  color: #1d4ed8;
+  color: var(--brand-mandy);
 }
 
 .message-tools {
@@ -550,14 +579,15 @@ body::before {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: #f1f5f9;
+  background: var(--bg-sunken);
   font-size: 0.75rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-  border-bottom: 1px solid #e2e8f0;
+  /* Sunken tactile effect */
+  box-shadow: inset 0 1px 2px rgba(28, 28, 40, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .event-feed-indicator {
@@ -993,6 +1023,74 @@ body::before {
 .suggestion-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============================================
+   SESSION RECOVERY PROMPT
+   ============================================ */
+.recovery-prompt {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  margin: 10px 0;
+}
+
+.recovery-content {
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
+  border-radius: var(--radius-xl);
+  padding: 20px 24px;
+  text-align: center;
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral-md);
+  max-width: 320px;
+}
+
+.recovery-text {
+  margin: 0 0 16px 0;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.recovery-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.recovery-btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-lg);
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.continue-btn {
+  background: linear-gradient(180deg, #a84030 0%, var(--brand-primary) 50%, #5a0a09 100%);
+  color: white;
+  box-shadow: var(--highlight-top), 0 2px 6px rgba(111, 3, 2, 0.35);
+}
+
+.continue-btn:hover {
+  background: linear-gradient(180deg, #c04a38 0%, #a84030 50%, var(--brand-primary) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--highlight-top), 0 4px 12px rgba(111, 3, 2, 0.4);
+}
+
+.fresh-btn {
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
+  color: var(--text-secondary);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral);
+}
+
+.fresh-btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, var(--layer-3) 100%);
+  color: var(--brand-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--highlight-top-strong), 0 4px 8px rgba(28, 28, 40, 0.12);
 }
 
 /* ============================================
