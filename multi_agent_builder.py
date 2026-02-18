@@ -3,6 +3,7 @@ Build multi-agent root for Gavigans.
 HARDCODED agents - no DB dependency for reliability.
 """
 import os
+import uuid
 import logging
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
@@ -862,6 +863,17 @@ async def create_appointment(
         notes: Any additional notes about the appointment
         syncToGoogle: Whether to sync to Google Calendar, default True
     """
+    # Generate Jitsi Meet link for virtual appointments
+    meet_link = None
+    if appointment_type and appointment_type.lower() in ("virtual", "phone"):
+        room_id = uuid.uuid4().hex[:10]
+        meet_link = f"https://meet.jit.si/gavigans-{room_id}"
+        # Append meet link to notes so Jean's backend and inbox have it
+        if notes:
+            notes = f"{notes}\n\nVirtual Meeting Link: {meet_link}"
+        else:
+            notes = f"Virtual Meeting Link: {meet_link}"
+
     url = "https://gavigans-inbox.up.railway.app/api/calendar/appointments"
     headers = {
         "x-business-id": "gavigans",
@@ -877,8 +889,10 @@ async def create_appointment(
         "customerPhone": customerPhone,
         "type": appointment_type,
         "notes": notes,
-        "syncToGoogle": syncToGoogle
+        "syncToGoogle": syncToGoogle,
     }
+    if meet_link:
+        payload["meetLink"] = meet_link
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -887,6 +901,8 @@ async def create_appointment(
                 appt_data = resp.json()
                 appt_obj = appt_data.get("appointment", appt_data)
                 appt_id = appt_obj.get("id", appt_obj.get("_id", "unknown"))
+                if meet_link:
+                    return {"result": f"Appointment booked successfully. ID: {appt_id}. {title} on {date} for {customerName}. Confirmation will be sent to {customerEmail}. Virtual meeting link: {meet_link}"}
                 return {"result": f"Appointment booked successfully. ID: {appt_id}. {title} on {date} for {customerName}. Confirmation will be sent to {customerEmail}."}
             return {"result": f"Appointment booking failed (status {resp.status_code}). Please try again."}
     except Exception as e:
