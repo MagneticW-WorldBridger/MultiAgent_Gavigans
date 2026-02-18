@@ -745,10 +745,16 @@ async def search_products(user_message: str) -> dict:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
-                return resp.json()
-            return {"error": f"Search failed with status {resp.status_code}"}
+                body = resp.text.strip()
+                if not body:
+                    return {"products": [], "message": "No products found for that search. Try different keywords."}
+                try:
+                    return resp.json()
+                except Exception:
+                    return {"products": [], "message": "Search returned unexpected format. Try different keywords."}
+            return {"products": [], "message": f"Search unavailable (status {resp.status_code}). Try again shortly."}
     except Exception as e:
-        return {"error": str(e)}
+        return {"products": [], "message": f"Search temporarily unavailable. Please try again."}
 
 
 async def create_ticket(
