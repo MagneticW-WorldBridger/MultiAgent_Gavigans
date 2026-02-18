@@ -212,7 +212,7 @@ function parseEventsToMessages(events) {
 // Welcome message shown when starting fresh
 const WELCOME_MESSAGE = {
   role: 'system',
-  text: `Welcome to Gavigans! 🤖\n\nI'm your AI assistant powered by Google ADK.\nHow can I help you today?`
+  text: `Welcome to Gavigans! 🤖\n\nI'm your AI assistant powered by AiPRL Assist.\nHow can I help you today?`
 }
 
 // Event types for categorization

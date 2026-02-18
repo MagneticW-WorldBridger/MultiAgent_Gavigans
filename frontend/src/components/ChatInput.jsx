@@ -6,10 +6,10 @@ import { useRef, useEffect } from 'react'
 import { Send, Loader2, StopCircle } from 'lucide-react'
 
 const SUGGESTIONS = [
-  'Show me sectionals',
-  'Grey sofas under $2000',
-  'Return policy',
-  'What categories do you have?'
+  'What are your store hours?',
+  'Tell me about financing',
+  'Book an appointment',
+  'Help me find furniture'
 ]
 
 export function ChatInput({ value, onChange, onSend, onCancel, status }) {
@@ -50,7 +50,7 @@ export function ChatInput({ value, onChange, onSend, onCancel, status }) {
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask AiPRL about furniture, orders, policies..."
+            placeholder="Ask about furniture, locations, appointments..."
             rows={1}
             className="chat-textarea"
             disabled={isBusy}
