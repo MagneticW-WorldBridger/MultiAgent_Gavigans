@@ -632,16 +632,24 @@ Make sure Name, Email, and Phone are valid. For example do not accept placeholde
 
 Once the appointment time is given, make sure it is within working hours. If it is within working hours move to Step 3. If not, recommend a different time.
 
-Step 3 - Confirm and Create Ticket:
+Step 3 - Confirm and Create Appointment:
 Always confirm that the date and time you have on record is the same as what the user selected.
 
-Once EVERYTHING required for the appointment is provided - appointment type, location if in-store, email, full name, phone number, and preferred appointment time - create a ticket using the create_ticket tool.
+Once EVERYTHING required for the appointment is provided - appointment type, location if in-store, email, full name, phone number, and preferred appointment time - create the appointment using the create_appointment tool.
 
-Use a title like "Appointment Request - [type] at [location] on [date and time]" and include all details in the description. Set priority to medium for standard appointments.
+Use the create_appointment tool with:
+- title: e.g. "In-Store Consultation - Forest Hill" or "Virtual Consultation"
+- date: the full ISO datetime string e.g. "2026-02-20T10:00:00Z" - MUST include the time
+- customerName: the customer's full name
+- customerEmail: the customer's email
+- customerPhone: the customer's phone number
+- duration: 30 minutes by default
+- appointment_type: "in-store", "virtual", or "phone"
+- notes: include the showroom location and any relevant details
 
-Before creating the ticket, check the conversation history to confirm all information has been provided. If something is missing, ask for it first, then create the ticket.
+Before creating the appointment, check the conversation history to confirm all information has been provided. If something is missing, ask for it first, then create the appointment.
 
-After creating the ticket, confirm to the user that their appointment request has been submitted and the team will reach out to confirm.
+After creating the appointment, confirm to the user that their appointment has been booked and the team will reach out to confirm.
 
 HUMAN SUPPORT TRANSFER PROCESS - FOLLOW THESE STEPS EXACTLY:
 
@@ -713,18 +721,18 @@ YouTube: https://www.youtube.com/channel/UChb2a-DHtKoYbFBrl68aG6A
 LinkedIn: https://www.linkedin.com/company/gavigan's-home-furnishings/
 
 TOOLS AVAILABLE TO YOU:
-You have access to the create_ticket tool. Use it in the following situations:
+You have access to two tools: create_ticket and create_appointment.
 
-1. Appointment booking: After collecting appointment type, location if in-store, full name, email, phone, and preferred date and time. Title should be "Appointment Request - [type] at [location] on [date and time]". Priority medium.
+USE create_appointment FOR:
+- Appointment booking: After collecting appointment type, location if in-store, full name, email, phone, and preferred date and time. Pass the title, ISO date string with time, customer details, duration, type, and notes.
 
-2. Support connection: After collecting full name, email, phone, and reason for support. Title should summarize the issue. Priority based on urgency.
+USE create_ticket FOR:
+- Support connection: After collecting full name, email, phone, and reason for support. Title should summarize the issue. Priority based on urgency.
+- Purchase inquiry: If a customer wants to buy furniture and you have their name, email, phone, and the product they want. Title should be "Purchase Inquiry - [product name]". Priority medium.
+- Showroom connection request: If a customer wants to connect with a specific showroom. Include which showroom and what they need help with. Priority medium.
 
-3. Purchase inquiry: If a customer wants to buy furniture and you have their name, email, phone, and the product they want. Title should be "Purchase Inquiry - [product name]". Priority medium.
-
-4. Showroom connection request: If a customer wants to connect with a specific showroom. Include which showroom and what they need help with. Priority medium.
-
-You MUST collect Name and Email at minimum before running the create_ticket tool. Phone is also required for appointment bookings. Do not run the tool without the required information.""",
-        "tools": ["create_ticket"]
+You MUST collect Name and Email at minimum before running either tool. Phone is also required for appointment bookings. Do not run any tool without the required information.""",
+        "tools": ["create_ticket", "create_appointment"]
     }
 ]
 
@@ -734,7 +742,7 @@ You MUST collect Name and Email at minimum before running the create_ticket tool
 # =============================================================================
 
 async def search_products(user_message: str) -> dict:
-    """Search for products based on the user's query."""
+    """Search for products based on the user's query. Returns a plain text summary of matching products."""
     url = "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/bdca330b-8f1c-4b40-99aa-aiprl-home-and-living-V3"
     payload = {
         "User_message": user_message,
@@ -748,11 +756,10 @@ async def search_products(user_message: str) -> dict:
             if resp.status_code == 200:
                 body = resp.text.strip()
                 if not body:
-                    return {"products": [], "message": "No products found for that search. Try different keywords."}
+                    return {"result": "No products found for that search. Try different keywords."}
                 try:
                     import json as _json
                     data = resp.json()
-                    # API returns [{"message": "{\"products\":[...]}"}]
                     products = []
                     if isinstance(data, list) and len(data) > 0:
                         msg = data[0].get("message", "")
@@ -764,24 +771,30 @@ async def search_products(user_message: str) -> dict:
                     elif isinstance(data, dict):
                         products = data.get("products", [])
 
-                    slim = []
-                    for p in products[:5]:
-                        desc = p.get("product_description", "")
-                        slim.append({
-                            "name": p.get("product_name", "Unknown"),
-                            "price": str(p.get("product_price", "")).split(",")[0].strip(),
-                            "description": desc[:200] if desc else "",
-                            "url": p.get("product_URL", ""),
-                            "image": p.get("product_image_URL", ""),
-                        })
-                    if slim:
-                        return {"products": slim}
-                    return {"products": [], "message": "No products found. Try different keywords."}
+                    if not products:
+                        return {"result": "No products found. Try different keywords."}
+
+                    lines = []
+                    for i, p in enumerate(products, 1):
+                        name = p.get("product_name", "Unknown")
+                        price = str(p.get("product_price", "")).split(",")[0].strip()
+                        description = p.get("product_description", "")
+                        product_url = p.get("product_URL", "")
+                        image_url = p.get("product_image_URL", "")
+                        lines.append(f"{i}. {name} - ${price}")
+                        if description:
+                            lines.append(f"   Description: {description}")
+                        if product_url:
+                            lines.append(f"   Link: {product_url}")
+                        if image_url:
+                            lines.append(f"   Image: {image_url}")
+
+                    return {"result": f"Found {len(products)} products:\n" + "\n".join(lines)}
                 except Exception:
-                    return {"products": [], "message": "Search returned unexpected format. Try different keywords."}
-            return {"products": [], "message": f"Search unavailable (status {resp.status_code}). Try again shortly."}
+                    return {"result": "Search returned unexpected format. Try different keywords."}
+            return {"result": f"Search unavailable (status {resp.status_code}). Try again shortly."}
     except Exception as e:
-        return {"products": [], "message": f"Search temporarily unavailable. Please try again."}
+        return {"result": "Search temporarily unavailable. Please try again."}
 
 
 async def create_ticket(
@@ -791,12 +804,15 @@ async def create_ticket(
     customerEmail: str = "",
     customerPhone: str = "",
     priority: str = "medium",
-    tags: str = ""
+    tags: str = "",
+    conversationId: str = "",
+    source: str = "ai-agent"
 ) -> dict:
-    """Create a support ticket for a customer issue."""
+    """Create a support ticket for a customer issue. Returns a confirmation message."""
     url = "https://gavigans-inbox.up.railway.app/api/tickets"
     headers = {
         "x-business-id": "gavigans",
+        "x-user-email": "ai-agent@gavigans.com",
         "Content-Type": "application/json"
     }
     payload = {
@@ -806,18 +822,24 @@ async def create_ticket(
         "customerEmail": customerEmail,
         "customerPhone": customerPhone,
         "priority": priority,
+        "source": source,
     }
     if tags:
         payload["tags"] = [t.strip() for t in tags.split(",")]
+    if conversationId:
+        payload["conversationId"] = conversationId
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
-                return {"success": True, "ticket": resp.json()}
-            return {"success": False, "error": f"Failed with status {resp.status_code}", "details": resp.text}
+                ticket_data = resp.json()
+                ticket_obj = ticket_data.get("ticket", ticket_data)
+                ticket_id = ticket_obj.get("id", ticket_obj.get("_id", "unknown"))
+                return {"result": f"Ticket created successfully. ID: {ticket_id}. Title: {title}. The team will follow up with {customerName} at {customerEmail}."}
+            return {"result": f"Ticket creation failed (status {resp.status_code}). Please try again."}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"result": f"Ticket creation failed due to a temporary error. Please try again."}
 
 
 async def create_appointment(
@@ -831,7 +853,7 @@ async def create_appointment(
     notes: str = "",
     syncToGoogle: bool = True
 ) -> dict:
-    """Create an appointment for a customer.
+    """Create an appointment for a customer. Returns a confirmation message.
     
     Args:
         title: Short title for the appointment e.g. 'In-Store Consultation - Forest Hill'
@@ -847,15 +869,16 @@ async def create_appointment(
     url = "https://gavigans-inbox.up.railway.app/api/calendar/appointments"
     headers = {
         "x-business-id": "gavigans",
+        "x-user-email": "ai-agent@gavigans.com",
         "Content-Type": "application/json"
     }
     payload = {
         "title": title,
         "date": date,
+        "duration": duration,
         "customerName": customerName,
         "customerEmail": customerEmail,
         "customerPhone": customerPhone,
-        "duration": duration,
         "type": appointment_type,
         "notes": notes,
         "syncToGoogle": syncToGoogle
@@ -865,10 +888,13 @@ async def create_appointment(
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code in (200, 201):
-                return {"success": True, "appointment": resp.json()}
-            return {"success": False, "error": f"Failed with status {resp.status_code}", "details": resp.text}
+                appt_data = resp.json()
+                appt_obj = appt_data.get("appointment", appt_data)
+                appt_id = appt_obj.get("id", appt_obj.get("_id", "unknown"))
+                return {"result": f"Appointment booked successfully. ID: {appt_id}. {title} on {date} for {customerName}. Confirmation will be sent to {customerEmail}."}
+            return {"result": f"Appointment booking failed (status {resp.status_code}). Please try again."}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"result": f"Appointment booking failed due to a temporary error. Please try again."}
 
 
 TOOL_MAP = {
