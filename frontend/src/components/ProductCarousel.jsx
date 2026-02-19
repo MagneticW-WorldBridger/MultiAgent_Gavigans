@@ -28,7 +28,7 @@ function ProductCard({ product }) {
       <div className="product-card-body">
         <h4 className="product-card-title">{product.name}</h4>
         <p className="product-card-price">
-          ${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}
+          {product.price_label || (product.price ? `Starting at $${product.price}` : 'Contact Store for Pricing')}
         </p>
         {product.url && (
           <a 

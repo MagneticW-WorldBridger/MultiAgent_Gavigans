@@ -765,11 +765,26 @@ async def search_products(user_message: str) -> dict:
                     carousel = []
                     for i, p in enumerate(products, 1):
                         name = p.get("product_name", "Unknown")
-                        price = str(p.get("product_price", "")).split(",")[0].strip()
+                        price_raw = str(p.get("product_price", "")).strip()
                         description = p.get("product_description", "")
                         product_url = p.get("product_URL", "")
                         image_url = p.get("product_image_URL", "")
-                        lines.append(f"{i}. {name} - ${price}")
+
+                        # Parse price: detect numeric vs non-numeric
+                        price_clean = price_raw.replace(",", "").replace("$", "").strip()
+                        try:
+                            price_num = float(price_clean)
+                            if price_num == int(price_num):
+                                price_display = f"{int(price_num):,}"
+                            else:
+                                price_display = f"{price_num:,.2f}"
+                            price_label = f"Starting at ${price_display}"
+                            lines.append(f"{i}. {name} - Starting at ${price_display}")
+                        except (ValueError, TypeError):
+                            price_display = None
+                            price_label = "Contact Store for Pricing"
+                            lines.append(f"{i}. {name} - Contact Store for Pricing")
+
                         if description:
                             lines.append(f"   Description: {description}")
                         if product_url:
@@ -778,7 +793,8 @@ async def search_products(user_message: str) -> dict:
                             lines.append(f"   Image: {image_url}")
                         carousel.append({
                             "name": name,
-                            "price": price,
+                            "price": price_display,
+                            "price_label": price_label,
                             "url": product_url,
                             "image_url": image_url,
                         })
