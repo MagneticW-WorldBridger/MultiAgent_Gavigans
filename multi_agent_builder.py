@@ -4,6 +4,7 @@ HARDCODED agents - no DB dependency for reliability.
 """
 import os
 import logging
+from datetime import datetime
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 from google.genai import types as genai_types
@@ -919,16 +920,28 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
     """
     print("🔧 Building multi-agent from hardcoded config...")
     
+    # Inject real current date/time into agent instructions
+    now = datetime.now()
+    date_str = now.strftime("%A, %B %d, %Y, %I:%M %p")
+    DATE_PLACEHOLDER = "CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context."
+    DATE_PLACEHOLDER_CRITICAL = "CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context. This is critical for booking appointments on correct dates."
+    DATE_INJECTION = f"CURRENT DATE AND TIME: Today is {date_str}. Always use this as the reference date for any date calculations."
+    
     sub_agents = []
     for config in AGENTS_CONFIG:
         tools = [TOOL_MAP[t] for t in config["tools"] if t in TOOL_MAP]
         print(f"   → {config['name']}: {len(tools)} tools")
         
+        # Replace vague date instructions with real date
+        instruction = config["instruction"]
+        instruction = instruction.replace(DATE_PLACEHOLDER_CRITICAL, DATE_INJECTION)
+        instruction = instruction.replace(DATE_PLACEHOLDER, DATE_INJECTION)
+        
         agent = Agent(
             name=config["name"],
             model=config["model"],
             description=config["description"],
-            instruction=config["instruction"],
+            instruction=instruction,
             tools=tools,
             before_agent_callback=before_callback,
             after_agent_callback=after_callback,
