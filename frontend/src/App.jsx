@@ -3,7 +3,6 @@
  * Powered by Google ADK
  */
 import { useState, useRef, useEffect } from 'react'
-import { RotateCcw } from 'lucide-react'
 import { useSSEChat } from './hooks/useSSEChat'
 import ChatMessage from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
@@ -22,9 +21,8 @@ function App() {
     status,
     streamingText,
     sendMessage,
-    reset,
     cancelStream,
-    aiPaused,  // 🆕 Track if human is handling the conversation
+    aiPaused,
     hasPendingRecovery,
     pendingMessageCount,
     confirmRecovery,
@@ -62,14 +60,6 @@ function App() {
               <p className="brand-subtitle">Multi-Agent Platform</p>
             </div>
           </div>
-          
-          <button
-            onClick={reset}
-            className="reset-btn"
-            title="New conversation"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
