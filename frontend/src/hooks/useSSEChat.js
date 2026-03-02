@@ -289,7 +289,7 @@ function extractProducts(events) {
       }
     }
   }
-  return products.filter(p => p.name && p.price)
+  return products.filter(p => p.name && (p.price || p.price_label))
 }
 
 export function useSSEChat() {
