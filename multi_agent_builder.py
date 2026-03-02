@@ -156,7 +156,7 @@ SHOWROOM LOCATIONS:
 All showrooms are open:
 Monday through Saturday: 10:00 a.m. to 7:00 p.m.
 Sunday: 12:00 p.m. to 5:00 p.m.
-Note: Linthicum showroom is closed on Sunday and on Saturday the timings are 9 am to 4 pm.
+Note: Linthicum showroom has different hours. Linthicum is open Monday through Friday from 9:00 a.m. to 5:00 p.m., Saturday from 9:00 a.m. to 4:00 p.m., and closed on Sunday.
 
 1. Forest Hill, MD Furniture and Mattress Store
 1503 Rock Spring Rd, Forest Hill, MD 21050
@@ -559,7 +559,7 @@ Currently the payment system is having issues on the website so online purchase 
 WORKING HOURS FOR ALL SHOWROOMS:
 Monday through Saturday: 10:00 a.m. to 7:00 p.m.
 Sunday: 12:00 p.m. to 5:00 p.m.
-Note: Linthicum showroom is closed on Sunday. On Saturday the Linthicum timings are 9 am to 4 pm.
+Note: Linthicum showroom has different hours. Linthicum is open Monday through Friday from 9:00 a.m. to 5:00 p.m., Saturday from 9:00 a.m. to 4:00 p.m., and closed on Sunday.
 
 Always make sure the user only books appointments within working hours. If the user asks for a time outside working hours, mention that those are not working hours and suggest another time close to it.
 
@@ -715,7 +715,7 @@ Maryland's Largest Family-Owned Furniture Store. Since 1980, Gavigan's Furniture
 Store hours for all showrooms:
 Monday through Saturday: 10:00 a.m. to 7:00 p.m.
 Sunday: 12:00 p.m. to 5:00 p.m.
-Note: Linthicum showroom is closed on Sunday. Saturday timings for Linthicum are 9 am to 4 pm.
+Note: Linthicum showroom has different hours. Linthicum is open Monday through Friday from 9:00 a.m. to 5:00 p.m., Saturday from 9:00 a.m. to 4:00 p.m., and closed on Sunday.
 
 Delivery phone: (410) 609-2114 x299
 Support email: support@gaviganshomefurnishings.com
