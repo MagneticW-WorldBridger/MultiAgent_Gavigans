@@ -530,24 +530,46 @@ export function useSSEChat() {
       
       abortControllerRef.current = new AbortController()
       
-      const response = await fetch(sseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appName: APP_NAME,
-          userId: userIdRef.current,
-          sessionId: sessionId,
-          newMessage: {
-            role: 'user',
-            parts: [{ text: text.trim() }]
-          },
-          streaming: true
-        }),
-        signal: abortControllerRef.current.signal
+      const requestBody = JSON.stringify({
+        appName: APP_NAME,
+        userId: userIdRef.current,
+        sessionId: sessionId,
+        newMessage: {
+          role: 'user',
+          parts: [{ text: text.trim() }]
+        },
+        streaming: true
       })
 
-      if (!response.ok) {
-        throw new Error(`API error ${response.status}`)
+      // Retry logic for network errors (up to 2 retries)
+      const MAX_RETRIES = 2
+      let response = null
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          response = await fetch(sseUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+            signal: abortControllerRef.current.signal
+          })
+          if (response.ok) break
+          if (attempt < MAX_RETRIES) {
+            console.warn(`⚠️ SSE request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`)
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          }
+        } catch (fetchErr) {
+          if (fetchErr.name === 'AbortError') throw fetchErr
+          if (attempt < MAX_RETRIES) {
+            console.warn(`⚠️ Network error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`, fetchErr.message)
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          } else {
+            throw fetchErr
+          }
+        }
+      }
+
+      if (!response || !response.ok) {
+        throw new Error(`API error ${response?.status || 'unknown'}`)
       }
 
       setStatus('streaming')
@@ -635,9 +657,10 @@ export function useSSEChat() {
 
     } catch (error) {
       if (error.name !== 'AbortError') {
+        console.error('SSE error:', error)
         setMessages(prev => [...prev, {
           role: 'agent',
-          text: `❌ Error: ${error.message}. Please check if the server is running.`
+          text: 'Sorry, I had a connection issue. Could you please try sending your message again?'
         }])
       }
     } finally {
