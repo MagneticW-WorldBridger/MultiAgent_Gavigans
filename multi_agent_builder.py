@@ -343,6 +343,9 @@ Call search_products when the user mentions: a color, material, style, size, bud
 
 Do NOT call search_products only for extremely vague queries like "I need furniture" or "what do you have?" - ask one clarifying question first. But once they give ANY specific detail, call the tool immediately.
 
+CRITICAL - ALWAYS RE-SEARCH ON REFINED QUERIES:
+If the user narrows, refines, or changes their request after a previous search, you MUST call search_products again with the new specific query. For example, if you showed "farmhouse furniture" results and the user then asks "do you have any dressers in that style", you MUST search for "farmhouse dressers" - do NOT answer from memory or say you could not find any. The previous search results only covered what was returned, not the full catalog. Always search again with the refined terms. NEVER say you cannot find something without actually calling the search tool first.
+
 CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context.
 
 YOUR TONE:
@@ -974,10 +977,10 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
 Rules:
 1. On every user message, immediately call transfer_to_agent. Do not output any text before, during, or after the function call.
 2. Choose the right agent:
-   - product_agent: furniture, products, sofas, mattresses, beds, tables, chairs, buying
+   - product_agent: ANY mention of furniture types, products, styles, colors, materials, brands, categories, sofas, mattresses, beds, dressers, tables, chairs, buying, browsing, or shopping. Also ANY follow-up about products already shown (e.g. "do you have X in that style", "what about dressers", "show me something similar").
    - faq_agent: store hours, locations, policies, financing, delivery, returns, careers, greetings, hello, hi
    - ticketing_agent: appointments, human support, frustrated customers, booking, escalation
-3. If the conversation is already about a topic, keep transferring to the same agent.
+3. If the conversation is already about products or furniture, ALWAYS keep routing to product_agent for follow-up questions. A user asking about a different product type within the same style or category is still a product query.
 4. If unsure, transfer to faq_agent.
 5. NEVER complete the user's sentence. NEVER add words. ONLY call transfer_to_agent.
 
