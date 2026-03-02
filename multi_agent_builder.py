@@ -564,7 +564,7 @@ Note: Linthicum showroom has different hours. Linthicum is open Monday through F
 Always make sure the user only books appointments within working hours. If the user asks for a time outside working hours, mention that those are not working hours and suggest another time close to it.
 
 DATE CALCULATION RULES - VERY IMPORTANT:
-When a user mentions a day name such as Sunday, Monday, or tomorrow, you MUST calculate the exact calendar date using the current date as reference. For example if today is Thursday February 5 2026 and the user says Sunday, you must calculate that Sunday is February 8 2026. Do not assume or guess dates. Do not reuse previously mentioned dates.
+When a user mentions a day name such as Sunday, Monday, or tomorrow, you MUST first call the get_current_date tool to get today's exact date, then calculate the exact calendar date from that. For example if get_current_date returns Thursday February 26 2026 and the user says Friday, you must calculate that Friday is February 27 2026. Do not assume or guess dates. Do not reuse previously mentioned dates. ALWAYS call get_current_date before any date calculation.
 
 Always resolve dates in this order:
 1. Identify today's date from current context.
@@ -745,7 +745,10 @@ YouTube: https://www.youtube.com/channel/UChb2a-DHtKoYbFBrl68aG6A
 LinkedIn: https://www.linkedin.com/company/gavigan's-home-furnishings/
 
 TOOLS AVAILABLE TO YOU:
-You have access to two tools: create_ticket and create_appointment.
+You have access to three tools: create_ticket, create_appointment, and get_current_date.
+
+CRITICAL - DATE AWARENESS:
+You MUST call the get_current_date tool BEFORE doing any date calculation. Do NOT rely on your own knowledge of the current date - it may be wrong. When a user says "this Friday", "tomorrow", "next week", or any relative date, ALWAYS call get_current_date first, then calculate the correct calendar date from the result. NEVER guess the current date.
 
 USE create_appointment FOR:
 - Appointment booking: After collecting appointment type, location if in-store, full name, email, phone, and preferred date and time. Pass the title, ISO date string with time, customer details, duration, type, and notes.
@@ -756,7 +759,7 @@ USE create_ticket FOR:
 - Showroom connection request: If a customer wants to connect with a specific showroom. Include which showroom and what they need help with. Priority medium.
 
 You MUST collect Name and Email at minimum before running either tool. Phone is also required for appointment bookings. Do not run any tool without the required information.""",
-        "tools": ["create_ticket", "create_appointment"]
+        "tools": ["create_ticket", "create_appointment", "get_current_date"]
     }
 ]
 
@@ -947,10 +950,21 @@ async def create_appointment(
         return {"result": f"Appointment booking failed due to a temporary error. Please try again."}
 
 
+async def get_current_date() -> dict:
+    """Get the current date and time. Use this whenever you need to know today's date, especially for appointment booking or date calculations."""
+    now = datetime.now()
+    return {
+        "result": f"Today is {now.strftime('%A, %B %d, %Y')}. The current time is {now.strftime('%I:%M %p')}.",
+        "date": now.strftime('%Y-%m-%d'),
+        "day_of_week": now.strftime('%A'),
+        "time": now.strftime('%I:%M %p')
+    }
+
 TOOL_MAP = {
     "search_products": FunctionTool(search_products),
     "create_ticket": FunctionTool(create_ticket),
     "create_appointment": FunctionTool(create_appointment),
+    "get_current_date": FunctionTool(get_current_date),
 }
 
 
