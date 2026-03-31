@@ -153,6 +153,38 @@ def event_to_message(event) -> Optional[Message]:
     )
 
 
+def _events_to_messages(events) -> list:
+    """Convert ADK events to Messages, extracting products as CAROUSEL_DATA."""
+    import json as _json
+
+    out = []
+    pending_products = []
+
+    for e in events:
+        if e.content and e.content.parts:
+            for p in e.content.parts:
+                fr = getattr(p, 'function_response', None)
+                if fr:
+                    resp = getattr(fr, 'response', None) or {}
+                    if isinstance(resp, dict) and isinstance(resp.get('products'), list):
+                        pending_products.extend(resp['products'])
+
+        msg = event_to_message(e)
+        if msg:
+            if pending_products and msg.author != 'user':
+                carousel_items = [{
+                    "title": prod.get("name", ""),
+                    "subtitle": prod.get("price_label", "") or (f"${prod['price']}" if prod.get("price") else "Contact Store"),
+                    "image_url": prod.get("image_url", ""),
+                    "url": prod.get("url", ""),
+                } for prod in pending_products if prod.get("name")]
+                if carousel_items:
+                    msg.content += f"\n\n**CAROUSEL_DATA:** {_json.dumps(carousel_items)}"
+                pending_products = []
+            out.append(msg)
+    return out
+
+
 def session_to_summary(session) -> ConversationSummary:
     """Convert ADK Session to summary for list.
     
@@ -335,9 +367,9 @@ def create_inbox_router(session_service, app_name: str = "gavigans_agent"):
             if not session:
                 raise HTTPException(status_code=404, detail="Conversation not found")
             
-            messages = [msg for e in session.events if (msg := event_to_message(e))]
-            
-            return MessagesResponse(status="OK", messages=messages, source="woodstock")
+            messages = _events_to_messages(session.events)
+
+            return MessagesResponse(status="OK", messages=messages, source="gavigans")
         except HTTPException:
             raise
         except Exception as e:
