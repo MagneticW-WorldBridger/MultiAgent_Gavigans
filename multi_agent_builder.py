@@ -5,6 +5,7 @@ HARDCODED agents - no DB dependency for reliability.
 import os
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 from google.genai import types as genai_types
@@ -385,13 +386,16 @@ User: Can you help me fix my car engine?
 Your response: I wish I could, but I am all about furniture! Want help picking the right mattress or sofa?
 
 TOOLS AVAILABLE TO YOU:
-You have access to the create_ticket tool. Use it when:
+You have access to three tools:
+1. create_ticket - Use it when:
 1. A customer wants to connect to support or speak to a human agent.
 2. A customer is frustrated or has an unresolved issue.
 3. A customer wants to purchase furniture and you need to collect their information so the team can follow up (since the website payment system is currently down).
 
+2. get_current_datetime - Use this whenever the user asks about today, current day/date/time, open now, open today, or any question that depends on the current calendar day/time. Treat this tool output as the source of truth and do not guess.
+
 When creating a ticket for a purchase inquiry, set the title to something like "Purchase Inquiry - [product name]" and include all collected details in the description. Set priority to medium for purchase inquiries and high for complaints or urgent issues.""",
-        "tools": ["create_ticket"]
+        "tools": ["create_ticket", "get_current_datetime"]
     },
 {
         "name": "product_agent",
@@ -592,12 +596,14 @@ User: Can you give me a $100 coupon?
 Response: I cannot provide a $100 off coupon but our stores have offers going on here and there. Would you be interested in talking to our support team so they can provide more information on ongoing offers?
 
 TOOLS AVAILABLE TO YOU:
-You have access to two tools:
+You have access to three tools:
 
 1. search_products - Use this to search for furniture products based on the user's query. Pass the user's specific request as the search query. Use this whenever the user has given you enough specific detail about what they are looking for.
 
-2. create_ticket - Use this when a customer is ready to purchase and you have collected their Name, Email, Phone, and the product they are interested in. Create a ticket with title "Purchase Inquiry - [product name]", include all customer details in the description, and set priority to medium. Only run this after all four pieces of information have been collected.""",
-        "tools": ["search_products", "create_ticket"]
+2. create_ticket - Use this when a customer is ready to purchase and you have collected their Name, Email, Phone, and the product they are interested in. Create a ticket with title "Purchase Inquiry - [product name]", include all customer details in the description, and set priority to medium. Only run this after all four pieces of information have been collected.
+
+3. get_current_datetime - Use this whenever the user asks about today, current day/date/time, open now, open today, or any question that depends on the current calendar day/time. Treat this tool output as the source of truth and do not guess.""",
+        "tools": ["search_products", "create_ticket", "get_current_datetime"]
     },
 {
         "name": "ticketing_agent",
@@ -608,6 +614,9 @@ You have access to two tools:
 You manage support tickets and appointment bookings. You are the agent customers reach when they want to talk to a human, when they have an unresolved issue, when they want to book an in-store or virtual appointment, or when they want to connect to a specific showroom.
 
 CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context. This is critical for booking appointments on correct dates.
+
+LIVE DATE/TIME SOURCE - MANDATORY:
+For any query that depends on the current date or time (for example: what day is today, what is today's date, is store X open today, is store X open now, tomorrow, next Monday), call get_current_datetime first and use that result as your anchor. Do not guess and do not reuse a stale date from earlier turns.
 
 CONVERSATION MEMORY - USE THE FULL CHAT HISTORY:
 Before you ask for any detail, scan the entire conversation from the start, including messages from before you were the active agent. Treat the thread as your memory.
@@ -884,7 +893,7 @@ YouTube: https://www.youtube.com/channel/UChb2a-DHtKoYbFBrl68aG6A
 LinkedIn: https://www.linkedin.com/company/gavigan's-home-furnishings/
 
 TOOLS AVAILABLE TO YOU:
-You have access to two tools: create_ticket and create_appointment.
+You have access to three tools: create_ticket, create_appointment, and get_current_datetime.
 
 USE create_appointment FOR:
 - Appointment booking: Only after collecting appointment type, location if in-store, full name, email, phone, and preferred date and time, sending one complete recap listing all of those, and the user explicitly confirming the recap is correct. Pass the title, ISO date string with time, customer details, duration, type, and notes.
@@ -894,8 +903,10 @@ USE create_ticket FOR:
 - Purchase inquiry: If a customer wants to buy furniture and you have their name, email, phone, and the product they want. Title should be "Purchase Inquiry - [product name]". Priority medium.
 - Showroom connection request: If a customer wants to connect with a specific showroom. Include which showroom and what they need help with. Priority medium.
 
-You MUST collect Name and Email at minimum before running either tool. Phone is also required for appointment bookings. Do not run any tool without the required information.""",
-        "tools": ["create_ticket", "create_appointment"]
+You MUST collect Name and Email at minimum before running either tool. Phone is also required for appointment bookings. Do not run any tool without the required information.
+
+When a reply depends on the current date/time, run get_current_datetime before answering.""",
+        "tools": ["create_ticket", "create_appointment", "get_current_datetime"]
     }
 ]
 
@@ -1086,10 +1097,29 @@ async def create_appointment(
         return {"result": f"Appointment booking failed due to a temporary error. Please try again."}
 
 
+async def get_current_datetime(timezone: str = "America/New_York") -> dict:
+    """Return current local date/time details for date-sensitive reasoning."""
+    try:
+        now = datetime.now(ZoneInfo(timezone))
+    except Exception:
+        timezone = "America/New_York"
+        now = datetime.now(ZoneInfo(timezone))
+
+    return {
+        "timezone": timezone,
+        "iso": now.isoformat(),
+        "weekday": now.strftime("%A"),
+        "date": now.strftime("%Y-%m-%d"),
+        "time": now.strftime("%I:%M %p"),
+        "human_readable": now.strftime("%A, %B %d, %Y, %I:%M %p"),
+    }
+
+
 TOOL_MAP = {
     "search_products": FunctionTool(search_products),
     "create_ticket": FunctionTool(create_ticket),
     "create_appointment": FunctionTool(create_appointment),
+    "get_current_datetime": FunctionTool(get_current_datetime),
 }
 
 
@@ -1113,11 +1143,11 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
     print("🔧 Building multi-agent from hardcoded config...")
     
     # Inject real current date/time into agent instructions
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("America/New_York"))
     date_str = now.strftime("%A, %B %d, %Y, %I:%M %p")
     DATE_PLACEHOLDER = "CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context."
     DATE_PLACEHOLDER_CRITICAL = "CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context. This is critical for booking appointments on correct dates."
-    DATE_INJECTION = f"CURRENT DATE AND TIME: Today is {date_str}. This line is the ONLY authoritative anchor for what day today is. Never invent, shift, or guess a different today. Every appointment date you state or pass to tools must be derived by explicit calendar reasoning from this anchor."
+    DATE_INJECTION = f"CURRENT DATE AND TIME: Startup snapshot is {date_str} (America/New_York). This can become stale if the service keeps running. For any query involving today/now/open today/open now or calendar math, you MUST call get_current_datetime and use that live output as the authoritative anchor. Never invent, shift, or guess dates."
     
     sub_agents = []
     for config in AGENTS_CONFIG:
